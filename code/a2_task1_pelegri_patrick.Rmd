@@ -2,7 +2,11 @@
 title: 'Task 1: Palmetto Binary Logistic Regression (PELEGRI)'
 author: "Patrick Pelegri-O'Day"
 date: "1/30/2022"
-output: html_document
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+code_folding: hide
 ---
 
 ```{r setup, include=TRUE, message = FALSE, warning = FALSE}
@@ -12,6 +16,10 @@ library(tidyverse)
 library(GGally)
 library(here)
 library(cowplot)
+library(broom)
+library(jtools)
+library(caret)
+library(kableExtra)
 ```
 
 
@@ -28,10 +36,15 @@ Use binary logistic regression to test the feasibility of using variables plant 
 # Read in the data
 palmetto_raw <- read_csv(here("data", "palmetto.csv"))
 
-# Take subset for exploration and analysis
+# Take subset for exploration and analysis. Rename species variables by their latin name and convert to factor
 palmetto <- palmetto_raw %>% 
   select(year, plant, species, height, length, width, green_lvs) %>% 
-    mutate(species = as.character(species))
+  mutate(species = case_when(
+    species %in% c(1) ~ "Serenoa repens",
+    species %in% c(2) ~ "Sabal etonia"
+  )) %>% 
+  mutate(species = as.factor(species)) %>%  # Sabal etonia is 1st, Serenoa repens is 2nd
+  drop_na()
   
 ```
 
@@ -66,4 +79,132 @@ explore3 <- ggplot(palmetto, aes(x = width, y = height, color = species)) +
 plot_grid(explore1, explore2, explore3, labels = c('A', 'B', 'C'), label_size = 12, nrow = 2)
 ```
 
-We see that relationships among palmetto width, height, and length are highly correlated with each other between the two species. However we see that the relationship between palmetto green leaves **[INSERT MORE ACCURATE DESCRIPTION]** and width is distinct between the two palmetto species.
+We see that relationships among palmetto width, height, and length are highly correlated with each other between the two species. However we see that the relationship between palmetto green leaves **[INSERT MORE ACCURATE DESCRIPTION]** and width is distinct between the two palmetto species. Given that green leaves is the only variable that has a different trend between the two species, that is the variable we will focus on for binomial logistic regression.
+
+### Binary logistic regression
+
+```{r binary logistic regression}
+
+# Define two functions which will be the basis of two models
+f1 <- species ~ green_lvs + width + height + length
+f2 <- species ~ green_lvs + width + height 
+
+# Define two binary logistic regression models based on the functions above
+palmetto_blr1 <- glm(formula = f1,
+                    data = palmetto,
+                    family = 'binomial')
+
+palmetto_blr2 <- glm(formula = f2,
+                    data = palmetto,
+                    family = 'binomial')
+
+# summary(palmetto_blr1)
+# summary(palmetto_blr2)
+
+```
+
+```{r visualizing binary models}
+# Visualize probability of Serenoa repens vs. 
+
+effect_plot(palmetto_blr1,
+            pred = green_lvs,
+            interval = TRUE,
+            y.label = "probability of Serenoa repens")
+
+effect_plot(palmetto_blr2,
+            pred = green_lvs,
+            interval = TRUE,
+            y.label = "probability of Serenoa repens")
+
+# They look very similar 
+```
+
+```{r cross validation}
+
+set.seed(47)
+
+# Define training method as cross validation, 10 folds, 10 repeats - CHECK MY UNDERSTANDING
+tr_ctrl <- trainControl(method = 'repeatedcv', number = 10, repeats = 10)
+
+palmetto_character <- palmetto %>%
+  mutate(species = as.character(species))
+
+# Train the two models
+model1 <- train(f1, data = palmetto,
+                method = 'glm', family = 'binomial',
+                trControl = tr_ctrl)
+
+model1
+
+model2 <- train(f2, data = palmetto,
+                method = 'glm', family = 'binomial',
+                trControl = tr_ctrl)
+
+model2
+
+######### DON'T UNDERSTAND WHAT THESE MODELS ARE GIVING ME COMPARED TO WHAT I PRODUCED FROM FOR-LOOPS ############
+
+# Create summary of results
+rmse_df_iterative_summary <- rmse_df_iterative %>% 
+  summarize(mean_rmse_model1_iterative = mean(mean_rmse_model1_first_pass),
+            mean_rmse_model2_iterative = mean(mean_rmse_model2_first_pass))
+
+# Display results summary in table
+kable(rmse_df_iterative_summary,
+      col = c("Model 1", "Model 2"),
+      caption = "Table 1. <br> Cross-validation results: mean RMSE") %>% 
+  kable_styling(full_width = FALSE)
+
+```
+
+```{r AIC}
+# Also compare AICc
+palmetto_AICc <- AICcmodavg::aictab(list(palmetto_blr1, palmetto_blr2))
+
+palmetto_AICc # AIC results indicate that Model 1 is preferable since it is lower by 7 points
+```
+
+AICc results show that Model 1 (AICc of `r round(aic_comparison$AICc[1], 1)`) outperforms Model 2 (AICc of `r round(aic_comparison$AICc[2], 1)`) by approximately `r round(aic_comparison$Delta_AICc[2], 1)` points.
+
+```{r train selected model}
+final_model_blr <- glm(formula = f1,
+                    data = palmetto,
+                    family = 'binomial')
+
+final_model_tidy <- tidy(final_model_blr) %>% 
+  mutate(p.value = case_when(
+    p.value < 0.01 ~ "***",
+    0.01 <= p.value < 0.05  ~ "**",
+    0.05 <= p.value < 0.1 ~ "*",
+    p.value >= 0.1 ~ ""
+  ))
+
+kable(final_model_tidy,
+      col = c("Term", "Estimate", "Std Error", "Statistic", "P-value"),
+      caption = "Table 1. <br> Final model summary") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+Final model:
+`r equatiomatic::extract_eq(final_model_blr, wrap = TRUE, use_coefs = TRUE)`
+
+```{r evaluate model prediction}
+ 
+# Create fitted outcomes for each model - NEED TO UNDERSTAND THIS BETTER
+
+blr1_fitted <- palmetto_blr1 %>% 
+  augment(type.predict = 'response')
+
+blr2_fitted <- palmetto_blr2 %>% 
+  augment(type.predict = 'response')
+
+# Visual comparison of selected model (Model 1): DON'T UNDERSTAND
+ggplot(data = blr1_fitted, aes(x = green_lvs, y = .fitted, shape = species)) +
+  ### add aes(shape = species) to compare probability with actual
+  # geom_point(aes(color = sex, shape = species)) +
+  ### add geom_smooth to show general fit
+  geom_smooth(se = FALSE) +
+  labs(x = "Green leaves",
+   	   y = "Probability of outcome Serenoa repens")
+```
+
