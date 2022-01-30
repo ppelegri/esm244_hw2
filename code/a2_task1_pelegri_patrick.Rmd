@@ -1,0 +1,60 @@
+---
+title: 'Task 1: Palmetto Binary Logistic Regression (PELEGRI)'
+author: "Patrick Pelegri-O'Day"
+date: "1/30/2022"
+output: html_document
+---
+
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(GGally)
+library(here)
+```
+
+
+### Overview
+This report uses binary logistic regression to test the feasibility of using variables plant height, canopy length, canopy width, and number of green leaves to classify whether a palmetto is species Serenoa repens or Sabal etonia. **[Describe the dataset**]
+
+**Data source:** Abrahamson, W.G. 2019. Survival, growth and biomass estimates of two dominant palmetto species of south-central Florida from 1981 - 2017, ongoing at 5-year intervals ver 1. Environmental Data Initiative. https://doi.org/10.6073/pasta/f2f96ec76fbbd4b9db431c79a770c4d5
+
+Use binary logistic regression to test the feasibility of using variables plant height (height), canopy length (length), canopy width (width), and number of green leaves (green_lvs) to classify whether a palmetto is species Serenoa repens or Sabal etonia. Use code folding and hide all messages & warnings in your knitted HTML.
+
+### Data exploration
+
+```{r}
+# Read in the data
+palmetto_raw <- read_csv(here("data", "palmetto.csv"))
+
+# Take subset for exploration and analysis
+palmetto <- palmetto_raw %>% 
+  select(year, plant, species, height, length, width, green_lvs)
+```
+
+2 visualizations: explore differences in height, canopy length, canopy width, and green leaves for the two species.
+
+```{r}
+# GGpairs (don't include in report)
+
+palmetto %>% 
+  select(-year, -plant) %>% 
+  mutate(species = as.character(species)) %>% 
+  ggpairs(aes(color = species))
+```
+
+
+```{r}
+# Explore differences between the two species
+
+explore1 <- ggplot(palmetto, aes(x = width, y = green_lvs, color = species)) +
+  geom_point() +
+  theme_minimal()
+
+explore2 <- ggplot (palmetto, aes(x = height, y = length, color = species)) +
+  geom_point() + 
+  theme_minimal()
+
+
+```
+
