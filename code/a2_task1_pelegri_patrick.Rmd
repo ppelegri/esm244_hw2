@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(GGally)
 library(here)
+library(cowplot)
 ```
 
 
@@ -29,7 +30,9 @@ palmetto_raw <- read_csv(here("data", "palmetto.csv"))
 
 # Take subset for exploration and analysis
 palmetto <- palmetto_raw %>% 
-  select(year, plant, species, height, length, width, green_lvs)
+  select(year, plant, species, height, length, width, green_lvs) %>% 
+    mutate(species = as.character(species))
+  
 ```
 
 2 visualizations: explore differences in height, canopy length, canopy width, and green leaves for the two species.
@@ -39,8 +42,9 @@ palmetto <- palmetto_raw %>%
 
 palmetto %>% 
   select(-year, -plant) %>% 
-  mutate(species = as.character(species)) %>% 
   ggpairs(aes(color = species))
+
+# Green leaves appear to be the only differentiator between the species
 ```
 
 
@@ -51,10 +55,15 @@ explore1 <- ggplot(palmetto, aes(x = width, y = green_lvs, color = species)) +
   geom_point() +
   theme_minimal()
 
-explore2 <- ggplot (palmetto, aes(x = height, y = length, color = species)) +
+explore2 <- ggplot(palmetto, aes(x = height, y = length, color = species)) +
   geom_point() + 
   theme_minimal()
 
+explore3 <- ggplot(palmetto, aes(x = width, y = height, color = species)) +
+  geom_point() +
+  theme_minimal()
 
+plot_grid(explore1, explore2, explore3, labels = c('A', 'B', 'C'), label_size = 12, nrow = 2)
 ```
 
+We see that relationships among palmetto width, height, and length are highly correlated with each other between the two species. However we see that the relationship between palmetto green leaves **[INSERT MORE ACCURATE DESCRIPTION]** and width is distinct between the two palmetto species.
