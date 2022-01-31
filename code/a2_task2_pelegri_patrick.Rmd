@@ -57,14 +57,14 @@ my_guess_model <- lm(log_weight ~ log_length, data = lizards)
 guess_coeffs <- coef(my_guess_model)
 
 # Define weight to length model for lizards
-conceptual_model <- function(a, SVL, b){
+calc_weight <- function(a, SVL, b){
  W = a*SVL^b
 return(W)
 }
 
-lizards_nls=nls(weight ~ conceptual_model(a, SVL, b),
+lizards_nls = nls(weight ~ calc_weight(a, SV_length, b),
                   data = lizards,
-                  start = list(a = 2.718^(guess_coeffs[1]/guess_coeffs[2], b = guess_vec[2]), trace = TRUE )
+                  start = list(a = 2.718^(guess_coeffs[1]/guess_coeffs[2]), b = guess_coeffs[2]), trace = TRUE)
 
 ```
 
