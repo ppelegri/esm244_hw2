@@ -23,6 +23,15 @@ library(kableExtra)
 ```
 
 
+A. Overview (done but needs to be reviewed)
+B. 3 finalized plots exploring differences in variables for the two species
+C. Run binary logistic regression
+  - Then perform cross validation
+  - Then check AICc
+D. Train selected model on entire dataset and show results in a table
+E. Show prediction accuracy in a table
+
+
 ### Overview
 This report uses binary logistic regression to test the feasibility of using variables plant height, canopy length, canopy width, and number of green leaves to classify whether a palmetto is species Serenoa repens or Sabal etonia. **[Describe the dataset**]
 
@@ -32,51 +41,86 @@ Use binary logistic regression to test the feasibility of using variables plant 
 
 ### Data exploration
 
-```{r}
+A subset of the data is retained for analysis. The variables considered include species of palmetto, plant height, canopy length, canopy width, and green leaves.
+```{r read and wrangle data}
 # Read in the data
 palmetto_raw <- read_csv(here("data", "palmetto.csv"))
 
 # Take subset for exploration and analysis. Rename species variables by their latin name and convert to factor
 palmetto <- palmetto_raw %>% 
-  select(year, plant, species, height, length, width, green_lvs) %>% 
+  select(species, height, length, width, green_lvs) %>% 
   mutate(species = case_when(
-    species %in% c(1) ~ "Serenoa repens",
-    species %in% c(2) ~ "Sabal etonia"
+    species == 1 ~ "Serenoa repens",
+    species == 2 ~ "Sabal etonia"
   )) %>% 
   mutate(species = as.factor(species)) %>%  # Sabal etonia is 1st, Serenoa repens is 2nd
   drop_na()
   
 ```
 
-2 visualizations: explore differences in height, canopy length, canopy width, and green leaves for the two species.
+Below, differences in plant height, canopy length, canopy width, and green leaves for the two species, Serenoa repens and Sabal etonia.
+CHANGE COLORS
 
-```{r}
-# GGpairs (don't include in report)
-
-palmetto %>% 
-  select(-year, -plant) %>% 
-  ggpairs(aes(color = species))
-
-# Green leaves appear to be the only differentiator between the species
-```
-
-
-```{r}
+```{r data exploration}
 # Explore differences between the two species
 
-explore1 <- ggplot(palmetto, aes(x = width, y = green_lvs, color = species)) +
-  geom_point() +
-  theme_minimal()
+explore1 <-ggplot(data = palmetto, aes(x = species, y = green_lvs, fill = species)) + geom_violin(scale = "count", color = "black") + # geom violin to visualize the large volume of data
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + # adding  median and quartiles to figure
+  stat_summary(fun=mean, # adding the mean to the figure 
+               geom="point", 
+               shape=20, 
+               size=4, 
+               color="black", 
+               fill="black") +
+  scale_fill_manual(values = c("cornsilk4", "lightblue3")) + 
+  theme_minimal(13) + # change theme and font size
+  theme(legend.position = "none",
+        axis.text.x = element_text(vjust = 5, size = 12)) + 
+  labs(x = element_blank(), y = "Number of green leaves")
 
-explore2 <- ggplot(palmetto, aes(x = height, y = length, color = species)) +
-  geom_point() + 
-  theme_minimal()
+explore2 <- ggplot(data = palmetto, aes(x = species, y = height, fill = species)) + geom_violin(scale = "count", color = "black") + 
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+  stat_summary(fun=mean, 
+               geom="point", 
+               shape=20, 
+               size=4, 
+               color="black", 
+               fill="black") +
+  scale_fill_manual(values = c("cornsilk4", "lightblue3")) + 
+  theme_minimal(13) + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(vjust = 5, size = 12)) + 
+  labs(x = element_blank(), y = "Plant height")
 
-explore3 <- ggplot(palmetto, aes(x = width, y = height, color = species)) +
-  geom_point() +
-  theme_minimal()
+explore3 <- ggplot(data = palmetto, aes(x = species, y = length, fill = species)) + geom_violin(scale = "count", color = "black") + 
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
+  stat_summary(fun=mean, 
+               geom="point", 
+               shape=20, 
+               size=4, 
+               color="black", 
+               fill="black") +
+  scale_fill_manual(values = c("cornsilk4", "lightblue3")) + 
+  theme_minimal(13) + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(vjust = 5, size = 12)) + 
+  labs(x = element_blank(), y = "Canopy length")
 
-plot_grid(explore1, explore2, explore3, labels = c('A', 'B', 'C'), label_size = 12, nrow = 2)
+
+explore4 <- ggplot(data = palmetto, aes(x = species, y = width, fill = species)) + geom_violin(scale = "count", color = "black") + 
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+  stat_summary(fun=mean, 
+               shape=20, 
+               size=4, 
+               color="black", 
+               fill="black") +
+  scale_fill_manual(values = c("cornsilk4", "lightblue3")) + 
+  theme_minimal(13) + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(vjust = 5, size = 12)) + 
+  labs(x = element_blank(), y = "Canopy width")
+
+plot_grid(explore1, explore2, explore3, explore4, labels = c('A', 'B', 'C', 'D'), label_size = 12, nrow = 2)
 ```
 
 We see that relationships among palmetto width, height, and length are highly correlated with each other between the two species. However we see that the relationship between palmetto green leaves **[INSERT MORE ACCURATE DESCRIPTION]** and width is distinct between the two palmetto species. Given that green leaves is the only variable that has a different trend between the two species, that is the variable we will focus on for binomial logistic regression.
@@ -85,7 +129,7 @@ We see that relationships among palmetto width, height, and length are highly co
 
 ```{r binary logistic regression}
 
-# Define two functions which will be the basis of two models
+# Define two functions that will be the basis of two models
 f1 <- species ~ green_lvs + width + height + length
 f2 <- species ~ green_lvs + width + height 
 
@@ -98,36 +142,15 @@ palmetto_blr2 <- glm(formula = f2,
                     data = palmetto,
                     family = 'binomial')
 
-# summary(palmetto_blr1)
-# summary(palmetto_blr2)
-
 ```
 
-```{r visualizing binary models}
-# Visualize probability of Serenoa repens vs. 
-
-effect_plot(palmetto_blr1,
-            pred = green_lvs,
-            interval = TRUE,
-            y.label = "probability of Serenoa repens")
-
-effect_plot(palmetto_blr2,
-            pred = green_lvs,
-            interval = TRUE,
-            y.label = "probability of Serenoa repens")
-
-# They look very similar 
-```
 
 ```{r cross validation}
 
 set.seed(47)
 
-# Define training method as cross validation, 10 folds, 10 repeats - CHECK MY UNDERSTANDING
+# Define training method as cross validation, 10 folds, 10 repeats
 tr_ctrl <- trainControl(method = 'repeatedcv', number = 10, repeats = 10)
-
-palmetto_character <- palmetto %>%
-  mutate(species = as.character(species))
 
 # Train the two models
 model1 <- train(f1, data = palmetto,
@@ -142,61 +165,78 @@ model2 <- train(f2, data = palmetto,
 
 model2
 
-######### DON'T UNDERSTAND WHAT THESE MODELS ARE GIVING ME COMPARED TO WHAT I PRODUCED FROM FOR-LOOPS ############
-
-# Create summary of results
-rmse_df_iterative_summary <- rmse_df_iterative %>% 
-  summarize(mean_rmse_model1_iterative = mean(mean_rmse_model1_first_pass),
-            mean_rmse_model2_iterative = mean(mean_rmse_model2_first_pass))
-
-# Display results summary in table
-kable(rmse_df_iterative_summary,
-      col = c("Model 1", "Model 2"),
-      caption = "Table 1. <br> Cross-validation results: mean RMSE") %>% 
-  kable_styling(full_width = FALSE)
-
 ```
+
+Cross-validation results show that Model 1 (accuracy of `r round(model1$results$Accuracy, 1)`) outperforms Model 2 (AICc of `r round(model2$results$Accuracy, 1)`) by approximately ``r round(model1$results$Accuracy - model2$results$Accuracy), 1)` points. Thus, cross-validation indicates that Model 1 is preferable.
 
 ```{r AIC}
 # Also compare AICc
 palmetto_AICc <- AICcmodavg::aictab(list(palmetto_blr1, palmetto_blr2))
 
-palmetto_AICc # AIC results indicate that Model 1 is preferable since it is lower by 7 points
+palmetto_AICc # AIC results indicate that Model 1 is preferable since it is lower by 807 points
 ```
 
-AICc results show that Model 1 (AICc of `r round(aic_comparison$AICc[1], 1)`) outperforms Model 2 (AICc of `r round(aic_comparison$AICc[2], 1)`) by approximately `r round(aic_comparison$Delta_AICc[2], 1)` points.
+AICc results show that Model 1 (AICc of `r round(aic_comparison$AICc[1], 1)`) outperforms Model 2 (AICc of `r round(aic_comparison$AICc[2], 1)`) by approximately `r round(aic_comparison$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model 1 is preferable to Model 2.
 
 ```{r train selected model}
-final_model_blr <- glm(formula = f1,
-                    data = palmetto,
-                    family = 'binomial')
+# Store tidy results of final model (Model 1)
+final_palmetto_blr <- tidy(palmetto_blr1) %>%  
+  mutate(p.value = case_when( # rename p-values for readability
+    p.value <0.001 ~ "<0.001"
+  )) %>% 
+  mutate(term = case_when( 
+         term == "(Intercept)" ~ "Intercept",
+         term == "height" ~ "Height",
+         term == "length" ~ "Length",
+         term == "width" ~ "Width",
+         term == "green_lvs" ~ "# of green leaves")) %>% 
+  select(-statistic)
 
-final_model_tidy <- tidy(final_model_blr) %>% 
-  mutate(p.value = case_when(
-    p.value < 0.01 ~ "***",
-    0.01 <= p.value < 0.05  ~ "**",
-    0.05 <= p.value < 0.1 ~ "*",
-    p.value >= 0.1 ~ ""
-  ))
-
-kable(final_model_tidy,
-      col = c("Term", "Estimate", "Std Error", "Statistic", "P-value"),
-      caption = "Table 1. <br> Final model summary") %>% 
-  kable_styling(full_width = FALSE)
+# Create table
+kable(final_palmetto_blr, 
+      col.names = c("Term", "Coefficient", "Standard Error", "P Value")) %>% 
+  kable_minimal(full_width = FALSE)
 ```
 
 Final model:
 `r equatiomatic::extract_eq(final_model_blr, wrap = TRUE, use_coefs = TRUE)`
 
-```{r evaluate model prediction}
+#### Evaluate model predictions
+
+```{r evaluate model predictions}
+# Create function for prediction accuracy
+predict_accuracy_f <- function(x, y) {
+  accurate <- ifelse(x == y, 1, 0)
+  return(accurate)
+}
  
-# Create fitted outcomes for each model - NEED TO UNDERSTAND THIS BETTER
+# Create fitted outcomes for each model, create column predicted_species based on predictions, create column prediction_result that shows 1 for correct prediction and 0 for incorrect prediction
+blr1_predictions <- palmetto_blr1 %>% 
+  augment(type.predict = 'response') %>% 
+  mutate(predicted_species = case_when(
+    .fitted >= 0.5 ~ "Serenoa repens",
+    .fitted < 0.5 ~ "Sabal etonia"
+  )) %>% 
+  mutate(prediction_result = prediction_accuracy(species, predicted_species))
 
-blr1_fitted <- palmetto_blr1 %>% 
-  augment(type.predict = 'response')
+# See what percentage of the time the model predicted correctly
+blr1_accuracy <- blr1_predictions %>% 
+  group_by(species) %>% 
+  summarize(pred_accuracy_v = round(mean(prediction_result), 2))
+  
+```
 
-blr2_fitted <- palmetto_blr2 %>% 
-  augment(type.predict = 'response')
+**Table 2.** Table caption here
+```{r}
+# Return results in a table
+kable(blr1_accuracy, 
+      col.names = c("Species", "% correctly classified")) %>% 
+  kable_minimal(full_width = FALSE)
+```
+
+
+```{r}
+### PLACEHOLDER… I think I can delete
 
 # Visual comparison of selected model (Model 1): DON'T UNDERSTAND
 ggplot(data = blr1_fitted, aes(x = green_lvs, y = .fitted, shape = species)) +

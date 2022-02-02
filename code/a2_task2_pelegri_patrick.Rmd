@@ -64,7 +64,17 @@ return(W)
 
 lizards_nls = nls(weight ~ calc_weight(a, SV_length, b),
                   data = lizards,
-                  start = list(a = 2.718^(guess_coeffs[1]/guess_coeffs[2]), b = guess_coeffs[2]), trace = TRUE)
+                  start = list(a = 2.718^(guess_coeffs[1]/guess_coeffs[2]), 
+                               b = guess_coeffs[2]), 
+                  trace = TRUE)
 
+kable(lizards_nls,
+      caption = "Table 1. NLS model") %>% 
+  kable_styling(full_width = FALSE)
+
+```
+
+```{r}
+ggplot(lizards_nls)
 ```
 
