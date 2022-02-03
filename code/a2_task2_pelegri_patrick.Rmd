@@ -64,7 +64,7 @@ return(W)
 
 lizards_nls = nls(weight ~ calc_weight(a, SV_length, b),
                   data = lizards,
-                  start = list(a = 2.718^(guess_coeffs[1]/guess_coeffs[2]), 
+                  start = list(a = exp(guess_coeffs[1]/guess_coeffs[2]), 
                                b = guess_coeffs[2]), 
                   trace = TRUE)
 
@@ -74,7 +74,67 @@ kable(lizards_nls,
 
 ```
 
+### Step 2
+Present your fitted model on a plot with female and male lizards separated by color. You should include the nls model in `kable` output of the html.
+
 ```{r}
-ggplot(lizards_nls)
+# Create vector of predicted values for weight
+lizards_pred_v <- predict(lizards_nls)
+
+# Append original lizards df with lizards_pred_v
+lizards_pred_df <- lizards %>% 
+  mutate(pred_weight = lizards_pred_v)
+
+# Graph predicted weight vs actual weight
+ggplot(lizards_pred_df) +
+  geom_jitter(aes(x = weight, y = pred_weight, color = sex)) + 
+  geom_abline(aes(x = weight, y = pred_weight), 
+              intercept = 0,
+              slope = 1,
+              color = "cornsilk4",
+              size = 1.5) +
+  labs(x = "Weight", y = "Predicted weight")
+
+  
+
+### Create kable output
+```
+
+### Step 3
+
+```{r}
+# Filter dataset for male Western Whiptail lizard
+lizards_mWW_df <- lizards_raw %>% 
+  filter(sex == "M", spp == "CNTI") %>%  
+  mutate(log_length = log(SV_length)) %>% 
+  mutate(log_weight = log(weight))
+
+# Create modified OLS model using log variables in order to generate guess of NLS model parameters
+lm_guess_mWW <- lm(log_weight ~ log_length, data = lizards)
+guess_coeffs_mWW <- coef(lm_guess_mWW)
+
+# Redefine lizards_nls function for new subset df
+lizards_mWW_nls = nls(weight ~ calc_weight(a, SV_length, b),
+                  data = lizards_mWW_df,
+                  start = list(a = exp(guess_coeffs_mWW[1]/guess_coeffs_mWW[2]), 
+                               b = guess_coeffs_mWW[2]), 
+                  trace = TRUE)
+
+# Create vector of predicted values for weight
+lizards_mWW_pred_v <- predict(lizards_mWW_nls)
+
+# Append original lizards_mWW_df with lizards_pred_v
+lizards_mWW_pred_df <- lizards_mWW_df %>% 
+  mutate(pred_weight = lizards_mWW_pred_v)
+
+# Graph predicted weight vs actual weight
+ggplot(lizards_mWW_pred_df) +
+  geom_jitter(aes(x = weight, y = pred_weight, color = sex)) + 
+  geom_abline(aes(x = weight, y = pred_weight), 
+              intercept = 0,
+              slope = 1,
+              color = "cornsilk4",
+              size = 1.5) +
+  labs(x = "Weight", y = "Predicted weight")
 ```
 
