@@ -20,6 +20,7 @@ library(broom)
 library(jtools)
 library(caret)
 library(kableExtra)
+library(ggbeeswarm)
 ```
 
 
@@ -59,12 +60,14 @@ palmetto <- palmetto_raw %>%
 ```
 
 Below, differences in plant height, canopy length, canopy width, and green leaves for the two species, Serenoa repens and Sabal etonia.
-CHANGE COLORS
+
+- UNDERSTAND WHY MEAN DOTS ARE CHANGING IN SIZE AND SEE IF I CAN FIX
 
 ```{r data exploration}
 # Explore differences between the two species
 
-explore1 <-ggplot(data = palmetto, aes(x = species, y = green_lvs, fill = species)) + geom_violin(scale = "count", color = "black") + # geom violin to visualize the large volume of data
+explore1 <-ggplot(data = palmetto, aes(x = species, y = green_lvs, fill = species)) + 
+  geom_violin(scale = "count", color = "black") + # geom violin to visualize the large volume of data
 geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + # adding  median and quartiles to figure
   stat_summary(fun=mean, # adding the mean to the figure 
                geom="point", 
@@ -76,10 +79,10 @@ geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + # ad
   theme_minimal(13) + # change theme and font size
   theme(legend.position = "none",
         axis.text.x = element_text(vjust = 5, size = 12)) + 
-  labs(x = element_blank(), y = "Number of green leaves")
+  labs(x = element_blank(), y = "# of green leaves")
 
-explore2 <- ggplot(data = palmetto, aes(x = species, y = height, fill = species)) + geom_violin(scale = "count", color = "black") + 
-geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+explore2 <- ggplot(data = palmetto, aes(x = species, y = height, fill = species)) + geom_beeswarm(scale = "count", color = "black") + 
+geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
   stat_summary(fun=mean, 
                geom="point", 
                shape=20, 
@@ -92,8 +95,8 @@ geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
         axis.text.x = element_text(vjust = 5, size = 12)) + 
   labs(x = element_blank(), y = "Plant height")
 
-explore3 <- ggplot(data = palmetto, aes(x = species, y = length, fill = species)) + geom_violin(scale = "count", color = "black") + 
-geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
+explore3 <- ggplot(data = palmetto, aes(x = species, y = length, fill = species)) + geom_beeswarm(scale = "count", color = "black") + 
+geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
   stat_summary(fun=mean, 
                geom="point", 
                shape=20, 
@@ -107,8 +110,8 @@ geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
   labs(x = element_blank(), y = "Canopy length")
 
 
-explore4 <- ggplot(data = palmetto, aes(x = species, y = width, fill = species)) + geom_violin(scale = "count", color = "black") + 
-geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+explore4 <- ggplot(data = palmetto, aes(x = species, y = width, fill = species)) + geom_beeswarm(scale = "count", color = "black") + 
+geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
   stat_summary(fun=mean, 
                shape=20, 
                size=4, 
