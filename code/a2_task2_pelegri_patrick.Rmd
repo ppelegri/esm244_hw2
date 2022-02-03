@@ -24,7 +24,7 @@ library(purrr)
 library(tidyverse)
 library(Metrics)
 library(patchwork)
-
+library(modelr)
 ```
 
 ```{r read in data}
@@ -125,16 +125,35 @@ lizards_mWW_pred_v <- predict(lizards_mWW_nls)
 
 # Append original lizards_mWW_df with lizards_pred_v
 lizards_mWW_pred_df <- lizards_mWW_df %>% 
-  mutate(pred_weight = lizards_mWW_pred_v)
+  mutate(pred_weight_mWW = lizards_mWW_pred_v)
 
-# Graph predicted weight vs actual weight
-ggplot(lizards_mWW_pred_df) +
-  geom_jitter(aes(x = weight, y = pred_weight, color = sex)) + 
-  geom_abline(aes(x = weight, y = pred_weight), 
-              intercept = 0,
-              slope = 1,
-              color = "cornsilk4",
-              size = 1.5) +
+# # Graph predicted weight vs actual weight
+# ggplot(lizards_mWW_pred_df) +
+#   geom_jitter(aes(x = weight, y = pred_weight, color = sex)) + 
+#   geom_abline(aes(x = weight, y = pred_weight), 
+#               intercept = 0,
+#               slope = 1,
+#               color = "cornsilk4",
+#               size = 1.5) +
+#   labs(x = "Weight", y = "Predicted weight")
+```
+
+Compare the two models
+```{r}
+lizards_compare_df <- lizards_pred_df %>% 
+  filter(spp == "CNTI", sex == 'M') %>% 
+  mutate(pred_weight_gen = pred_weight) %>% 
+  mutate(pred_weight_mWW = lizards_mWW_pred_v)
+
+# Graph predictions from general model vs mWW-specific model
+ggplot(lizards_compare_df) +
+  geom_jitter(aes(x = weight, y = pred_weight_mWW), color = "darkslateblue") +
+  geom_jitter(aes(x = weight, y = pred_weight_gen),color = "gold3") +
+  geom_jitter(aes(x = weight, y = weight),color = "black") +
   labs(x = "Weight", y = "Predicted weight")
+
+lizards_nls_gen_rmse <- rmse(model = lizards_nls, data = lizards_compare_df)
+lizards_nls_mWW_rmse <- rmse(model = lizards_mWW_nls, data = lizards_compare_df)
+
 ```
 
