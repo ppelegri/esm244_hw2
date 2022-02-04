@@ -10,9 +10,7 @@ code_folding: hide
 ---
 
 ### Overview
-[insert overview text: provide purpose and method of the analysis, then describe the dataset.]
-
-For task 2, you will use non linear least squares to estimate parameters of a length to weight model for lizard populations in New Mexico. 
+This report uses non-linear least squares to estimate parameters of model of lizard weight based on lizard snout-to-vent length for lizard populations in New Mexico. First, a model is created based on the entire data set including both male and female lizards across 13 species. Then, a model is created only using data on male Western Whiptail lizards (*Cnemidophorus tigrisatus*). The two models are compared for their accuracy in predicting weights of male Western Whiptail lizards.
 
 **Data Source:** Lightfoot, D. and W.G. Whitford. 2020. Lizard pitfall trap data from 11 NPP study locations at the Jornada Basin LTER site, 1989-2006 ver 37. Environmental Data Initiative. https://doi.org/10.6073/pasta/4a6e258fb49c31e222ecbbcfd128967f
 
@@ -25,6 +23,8 @@ library(tidyverse)
 library(Metrics)
 library(patchwork)
 library(modelr)
+library(broom)
+library(kableExtra)
 ```
 
 ```{r read in data}
@@ -32,13 +32,15 @@ lizards_raw <- read_csv(here("data", "lizard.csv"))
 ```
 
 
-### Analysis
+### General Model
 
-Our conceptual model is:
+#### OLS model for parameter estimation 
+
+Our conceptual model relating lizard weight (W) and lizard snout-vent length (SVL) is:
 \begin{equation}
 W=a(SVL)^b
 \end{equation}
-We want to estimate a and b. To do so, we take the natural log of both sides.
+We want to estimate parameters a and b. To do so, we take the natural log of both sides.
 ln(weight) = ln(a(length)$^b$). This is equal to
 ln(weight) = b * ln(a) + b * ln(length)
 
@@ -53,12 +55,17 @@ lizards <- lizards_raw %>%
   mutate(log_weight = log(weight))
 ```
 
-```{r create nls model}
+```{r create ols model}
 
 # Create initial OLS model using log variables in order to generate guess of NLS model parameters
 my_guess_model <- lm(log_weight ~ log_length, data = lizards)
 guess_coeffs <- coef(my_guess_model)
+```
 
+#### Create general NLS model 
+
+Parameter estimates from the OLS model are used as initial parameter guesses for creating the general NLS model. This NLS model is "general" in that it is trained on a dataset including all species of lizards and both sexes.
+```{r create general nls model}
 # Define weight to length model for lizards
 calc_weight <- function(a, SVL, b){
  W = a*SVL^b
@@ -73,6 +80,8 @@ lizards_nls = nls(weight ~ calc_weight(a, SV_length, b),
 
 ```
 
+
+##### **Table 1.** Estimated parameters of the general NLS model. Each parameter had a p value below 0.001.*
 ```{r nls general model table}
 # Create tidy version of lizards_nls, then create table
 # All p-values were extremely small; the ifelse renames them for readability
@@ -80,18 +89,16 @@ lizards_nls_tidy <- tidy(lizards_nls)
 
 lizards_nls_tidy$p.value <- ifelse(lizards_nls_tidy$p.value < .001, paste("<0.001"))
 
-lizareds_nls_tidy %>%
+lizards_nls_tidy %>%
   select(-statistic) %>% 
   kable(col.names = c("Parameter", "Estimate", 
-                      "Standard Error", "P Value"), 3) %>% 
+                      "Standard Error", "P Value"), digits = 4) %>% 
   kable_styling(bootstrap_options = "striped", 
                 position = "left", full_width = FALSE)
 
 ```
 
-
-### Step 2
-Present your fitted model on a plot with female and male lizards separated by color. You should include the nls model in `kable` output of the html.
+Predicted lizard weight values are generated from the general NLS model. Predicted values are compared to observed lizard weights to visualize model performance.
 
 ```{r}
 # Create vector of predicted values for weight
@@ -119,11 +126,13 @@ ggplot(data = lizards_pred_df,
        y = "Weight (g)")
 ```
 
-##### **Figure 1:** *This graph shows the actual weight of lizards separated by sex and a fitted non-linear least squares model (the purple line) that predicts wight from snout to vent length.* 
+##### **Figure 1:** *Observed weight of lizards separated by sex and a fitted non-linear least squares model (the purple line) that predicts weight from snout-vent length.* 
 
-This graph shows that the fitted model predicts lizard weight from snout to vent length acceptably. 
+This graph shows that the fitted model predicts lizard weight from snout-vent length reasonably well. 
 
-### Step 3
+### Species-specific NLS model
+
+Another NLS model is created using the same initial parameter guesses as were used by the general NLS model. This model is trained on a subset of the data that only includes male Western Whiptail lizards.
 
 ```{r}
 # Filter dataset for male Western Whiptail lizard
@@ -151,7 +160,9 @@ lizards_mWW_pred_df <- lizards_mWW_df %>%
   mutate(pred_weight_mWW = lizards_mWW_pred_v)
 ```
 
-Compare the two models
+### Model comparison
+
+The two models are compared by comparing the predicted weight values for male Western Whiptail lizards generated by two models and the observed weight values.
 ```{r}
 lizards_compare_df <- lizards_pred_df %>% 
   filter(spp == "CNTI", sex == 'M') %>% 
@@ -180,10 +191,18 @@ ggplot(lizards_compare_df) +
        y = "Weight (g)")
 
 ```
+##### **Figure 2:** *This graph shows the actual weight of lizards (red points) compared to predicted weights from both the whiptail-specific model (the yellow line) and the general model (purple line) from* **Figure 1**.
 
+RMSE is calculated for each model to compare them.
 ```{r compare rmse}
 lizards_nls_gen_rmse <- rmse(model = lizards_nls, data = lizards_compare_df)
+#  round(2)
+
 lizards_nls_mWW_rmse <- rmse(model = lizards_mWW_nls, data = lizards_compare_df)
+#  round(2)
 ```
+
+The Whiptail-specific model predicts male Western Whiptail lizard weight more accurately than the general model: Whiptail-specific model RMSE =`r round(lizards_nls_mWW_rmse, 2)`; general model RMSE = `r round(lizards_nls_gen_rmse, 2)`). Thus, the Whiptail-specific model is a better option for predicting male Western Whiptail weights based on snout-vent length.
+ 
 
 
