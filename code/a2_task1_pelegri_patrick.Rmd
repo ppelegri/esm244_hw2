@@ -3,9 +3,9 @@ title: 'Task 1: Palmetto Binary Logistic Regression (PELEGRI)'
 author: "Patrick Pelegri-O'Day"
 date: "1/30/2022"
 output:
-  prettydoc::html_pretty:
-    theme: architect
-    highlight: github
+  html_document: 
+    theme: flatly
+    highlight: pygments
 code_folding: hide
 ---
 
@@ -20,11 +20,10 @@ library(broom)
 library(jtools)
 library(caret)
 library(kableExtra)
-library(ggbeeswarm)
 ```
 
 
-A. Overview (done but needs to be reviewed)
+A. Overview 
 B. 3 finalized plots exploring differences in variables for the two species
 C. Run binary logistic regression
   - Then perform cross validation
@@ -34,11 +33,9 @@ E. Show prediction accuracy in a table
 
 
 ### Overview
-This report uses binary logistic regression to test the feasibility of using variables plant height, canopy length, canopy width, and number of green leaves to classify whether a palmetto is species Serenoa repens or Sabal etonia. **[Describe the dataset**]
+This report uses binary logistic regression to test the feasibility of using variables plant height, canopy length, canopy width, and number of green leaves to classify whether a palmetto is species Serenoa repens or Sabal etonia. The dataset is drawn from observations of two dominant palmetto species of south-central Florida from 1981 - 2017.
 
 **Data source:** Abrahamson, W.G. 2019. Survival, growth and biomass estimates of two dominant palmetto species of south-central Florida from 1981 - 2017, ongoing at 5-year intervals ver 1. Environmental Data Initiative. https://doi.org/10.6073/pasta/f2f96ec76fbbd4b9db431c79a770c4d5
-
-Use binary logistic regression to test the feasibility of using variables plant height (height), canopy length (length), canopy width (width), and number of green leaves (green_lvs) to classify whether a palmetto is species Serenoa repens or Sabal etonia. Use code folding and hide all messages & warnings in your knitted HTML.
 
 ### Data exploration
 
@@ -59,17 +56,16 @@ palmetto <- palmetto_raw %>%
   
 ```
 
-Below, differences in plant height, canopy length, canopy width, and green leaves for the two species, Serenoa repens and Sabal etonia.
-
-- UNDERSTAND WHY MEAN DOTS ARE CHANGING IN SIZE AND SEE IF I CAN FIX
+Below, differences in plant height, canopy length, canopy width, and green leaves are explored for the two species, Serenoa repens and Sabal etonia.
 
 ```{r data exploration}
 # Explore differences between the two species
 
+# The code below explores the four variables of interest with one plot for each variable. The code for each plot is the same except for the variable name.
 explore1 <-ggplot(data = palmetto, aes(x = species, y = green_lvs, fill = species)) + 
-  geom_violin(scale = "count", color = "black") + # geom violin to visualize the large volume of data
-geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + # adding  median and quartiles to figure
-  stat_summary(fun=mean, # adding the mean to the figure 
+  geom_violin(scale = "count", color = "black") + # mirrored density plot
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + # add  median and quartiles
+  stat_summary(fun=mean, # add the mean to the figure 
                geom="point", 
                shape=20, 
                size=4, 
@@ -130,28 +126,30 @@ geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
 plot_grid(explore1, explore2, explore3, explore4, labels = c('A', 'B', 'C', 'D'), label_size = 12, nrow = 2)
 ```
 
-We see that relationships among palmetto width, height, and length are highly correlated with each other between the two species. However we see that the relationship between palmetto green leaves **[INSERT MORE ACCURATE DESCRIPTION]** and width is distinct between the two palmetto species. Given that green leaves is the only variable that has a different trend between the two species, that is the variable we will focus on for binomial logistic regression.
+We see that the two species are difficult to distinguish when looking at canopy length, canopy width, and canopy height. However the distribution of number of green leaves is noticeably different between the two species. Given that green leaves is the only variable that has a different trend between the two species, that is the variable we will focus on for binomial logistic regression.
 
 ### Binary logistic regression
+
+Two binary logistic regression models are created to predict palmetto species based on palmetto traits. One model contains all four variables of interest and is called **Model All**. The other model contains only canopy width, plant height, and number of green leaves and is called **Model Subset**.
 
 ```{r binary logistic regression}
 
 # Define two functions that will be the basis of two models
-f1 <- species ~ green_lvs + width + height + length
-f2 <- species ~ green_lvs + width + height 
+f_all <- species ~ green_lvs + width + height + length
+f_subset <- species ~ green_lvs + width + height 
 
 # Define two binary logistic regression models based on the functions above
-palmetto_blr1 <- glm(formula = f1,
+palmetto_blr_all <- glm(formula = f_all,
                     data = palmetto,
                     family = 'binomial')
 
-palmetto_blr2 <- glm(formula = f2,
+palmetto_blr_subset <- glm(formula = f_subset,
                     data = palmetto,
                     family = 'binomial')
 
 ```
 
-
+Cross validation using 10 folds and 10 iterations is performed to compare the performance of the two models. 
 ```{r cross validation}
 
 set.seed(47)
@@ -160,30 +158,26 @@ set.seed(47)
 tr_ctrl <- trainControl(method = 'repeatedcv', number = 10, repeats = 10)
 
 # Train the two models
-model1 <- train(f1, data = palmetto,
+model_all <- train(f_all, data = palmetto,
                 method = 'glm', family = 'binomial',
                 trControl = tr_ctrl)
 
-model1
-
-model2 <- train(f2, data = palmetto,
+model_subset <- train(f_subset, data = palmetto,
                 method = 'glm', family = 'binomial',
                 trControl = tr_ctrl)
-
-model2
 
 ```
 
-Cross-validation results show that Model 1 (accuracy of `r round(model1$results$Accuracy, 1)`) outperforms Model 2 (AICc of `r round(model2$results$Accuracy, 1)`) by approximately ``r round((model1$results$Accuracy - model2$results$Accuracy), 1)` points. Thus, cross-validation indicates that Model 1 is preferable.
+Cross-validation results show that Model All (accuracy of `r round(model_all$results$Accuracy, 1)`) outperforms Model Subset (AICc of `r round(model_subset$results$Accuracy, 1)`) by approximately ``r round((model_all$results$Accuracy - model_subset$results$Accuracy), 1)` points. Thus, cross-validation indicates that Model All is preferable.
 
 ```{r AIC}
 # Also compare AICc
-palmetto_AICc <- AICcmodavg::aictab(list(palmetto_blr1, palmetto_blr2))
+palmetto_aic <- AICcmodavg::aictab(list(palmetto_blr_all, palmetto_blr_subset))
 
-palmetto_AICc # AIC results indicate that Model 1 is preferable since it is lower by 807 points
+palmetto_aic # AIC results indicate that Model 1 is preferable since it is lower by 793 points
 ```
 
-AICc results show that Model 1 (AICc of `r round(palmetto_AICc$AICc[1], 1)`) outperforms Model 2 (AICc of `r round(palmetto_AICc$AICc[2], 1)`) by approximately `r round(palmetto_AICc$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model 1 is preferable to Model 2.
+AICc results show that Model All (AICc of `r round(palmetto_AICc$AICc[1], 1)`) outperforms Model Subset (AICc of `r round(palmetto_AICc$AICc[2], 1)`) by approximately `r round(palmetto_AICc$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model All is preferable to Model Subset.
 
 ```{r train selected model}
 # Store tidy results of final model (Model 1)

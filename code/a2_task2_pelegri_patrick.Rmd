@@ -3,9 +3,9 @@ title: 'Task 2: Parameter Estimation (PELEGRI)'
 author: "Patrick Pelegri-O'Day"
 date: "1/31/2022"
 output:
-  prettydoc::html_pretty:
-    theme: architect
-    highlight: github
+  html_document: 
+    theme: flatly
+    highlight: pygments
 code_folding: hide
 ---
 
