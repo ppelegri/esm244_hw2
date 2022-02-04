@@ -81,9 +81,10 @@ geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + # ad
         axis.text.x = element_text(vjust = 5, size = 12)) + 
   labs(x = element_blank(), y = "# of green leaves")
 
-explore2 <- ggplot(data = palmetto, aes(x = species, y = height, fill = species)) + geom_beeswarm(scale = "count", color = "black") + 
-geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
-  stat_summary(fun=mean, 
+explore2 <-ggplot(data = palmetto, aes(x = species, y = height, fill = species)) + 
+  geom_violin(scale = "count", color = "black") + 
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+  stat_summary(fun=mean,
                geom="point", 
                shape=20, 
                size=4, 
@@ -95,9 +96,10 @@ geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
         axis.text.x = element_text(vjust = 5, size = 12)) + 
   labs(x = element_blank(), y = "Plant height")
 
-explore3 <- ggplot(data = palmetto, aes(x = species, y = length, fill = species)) + geom_beeswarm(scale = "count", color = "black") + 
-geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
-  stat_summary(fun=mean, 
+explore3 <-ggplot(data = palmetto, aes(x = species, y = length, fill = species)) + 
+  geom_violin(scale = "count", color = "black") + 
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+  stat_summary(fun=mean,
                geom="point", 
                shape=20, 
                size=4, 
@@ -110,9 +112,11 @@ geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) +
   labs(x = element_blank(), y = "Canopy length")
 
 
-explore4 <- ggplot(data = palmetto, aes(x = species, y = width, fill = species)) + geom_beeswarm(scale = "count", color = "black") + 
-geom_violin(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
-  stat_summary(fun=mean, 
+explore4 <-ggplot(data = palmetto, aes(x = species, y = width, fill = species)) + 
+  geom_violin(scale = "count", color = "black") + 
+geom_boxplot(color = "black", fill = NA, width = 0.1, outlier.color = NA) + 
+  stat_summary(fun=mean,
+               geom="point", 
                shape=20, 
                size=4, 
                color="black", 
@@ -170,7 +174,7 @@ model2
 
 ```
 
-Cross-validation results show that Model 1 (accuracy of `r round(model1$results$Accuracy, 1)`) outperforms Model 2 (AICc of `r round(model2$results$Accuracy, 1)`) by approximately ``r round(model1$results$Accuracy - model2$results$Accuracy), 1)` points. Thus, cross-validation indicates that Model 1 is preferable.
+Cross-validation results show that Model 1 (accuracy of `r round(model1$results$Accuracy, 1)`) outperforms Model 2 (AICc of `r round(model2$results$Accuracy, 1)`) by approximately ``r round((model1$results$Accuracy - model2$results$Accuracy), 1)` points. Thus, cross-validation indicates that Model 1 is preferable.
 
 ```{r AIC}
 # Also compare AICc
@@ -179,7 +183,7 @@ palmetto_AICc <- AICcmodavg::aictab(list(palmetto_blr1, palmetto_blr2))
 palmetto_AICc # AIC results indicate that Model 1 is preferable since it is lower by 807 points
 ```
 
-AICc results show that Model 1 (AICc of `r round(aic_comparison$AICc[1], 1)`) outperforms Model 2 (AICc of `r round(aic_comparison$AICc[2], 1)`) by approximately `r round(aic_comparison$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model 1 is preferable to Model 2.
+AICc results show that Model 1 (AICc of `r round(palmetto_AICc$AICc[1], 1)`) outperforms Model 2 (AICc of `r round(palmetto_AICc$AICc[2], 1)`) by approximately `r round(palmetto_AICc$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model 1 is preferable to Model 2.
 
 ```{r train selected model}
 # Store tidy results of final model (Model 1)
@@ -201,8 +205,13 @@ kable(final_palmetto_blr,
   kable_minimal(full_width = FALSE)
 ```
 
-Final model:
-`r equatiomatic::extract_eq(final_model_blr, wrap = TRUE, use_coefs = TRUE)`
+```{r}
+# Put the below as text if I think it's necessary.
+
+# Final model:
+# `r equatiomatic::extract_eq(final_palmetto_blr, wrap = TRUE, use_coefs = TRUE)`
+```
+
 
 #### Evaluate model predictions
 
@@ -220,7 +229,7 @@ blr1_predictions <- palmetto_blr1 %>%
     .fitted >= 0.5 ~ "Serenoa repens",
     .fitted < 0.5 ~ "Sabal etonia"
   )) %>% 
-  mutate(prediction_result = prediction_accuracy(species, predicted_species))
+  mutate(prediction_result = predict_accuracy_f(species, predicted_species))
 
 # See what percentage of the time the model predicted correctly
 blr1_accuracy <- blr1_predictions %>% 
@@ -236,18 +245,3 @@ kable(blr1_accuracy,
       col.names = c("Species", "% correctly classified")) %>% 
   kable_minimal(full_width = FALSE)
 ```
-
-
-```{r}
-### PLACEHOLDER… I think I can delete
-
-# Visual comparison of selected model (Model 1): DON'T UNDERSTAND
-ggplot(data = blr1_fitted, aes(x = green_lvs, y = .fitted, shape = species)) +
-  ### add aes(shape = species) to compare probability with actual
-  # geom_point(aes(color = sex, shape = species)) +
-  ### add geom_smooth to show general fit
-  geom_smooth(se = FALSE) +
-  labs(x = "Green leaves",
-   	   y = "Probability of outcome Serenoa repens")
-```
-
