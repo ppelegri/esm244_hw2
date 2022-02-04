@@ -34,7 +34,10 @@ lizards_raw <- read_csv(here("data", "lizard.csv"))
 
 ### Analysis
 
-Our conceptual model is Weight = a(length)$^b$
+Our conceptual model is:
+\begin{equation}
+W=a(SVL)^b
+\end{equation}
 We want to estimate a and b. To do so, we take the natural log of both sides.
 ln(weight) = ln(a(length)$^b$). This is equal to
 ln(weight) = b * ln(a) + b * ln(length)
@@ -68,11 +71,24 @@ lizards_nls = nls(weight ~ calc_weight(a, SV_length, b),
                                b = guess_coeffs[2]), 
                   trace = TRUE)
 
-kable(lizards_nls,
-      caption = "Table 1. NLS model") %>% 
-  kable_styling(full_width = FALSE)
+```
+
+```{r nls general model table}
+# Create tidy version of lizards_nls, then create table
+# All p-values were extremely small; the ifelse renames them for readability
+lizards_nls_tidy <- tidy(lizards_nls)
+
+lizards_nls_tidy$p.value <- ifelse(lizards_nls_tidy$p.value < .001, paste("<0.001"))
+
+lizareds_nls_tidy %>%
+  select(-statistic) %>% 
+  kable(col.names = c("Parameter", "Estimate", 
+                      "Standard Error", "P Value"), 3) %>% 
+  kable_styling(bootstrap_options = "striped", 
+                position = "left", full_width = FALSE)
 
 ```
+
 
 ### Step 2
 Present your fitted model on a plot with female and male lizards separated by color. You should include the nls model in `kable` output of the html.
@@ -84,21 +100,28 @@ lizards_pred_v <- predict(lizards_nls)
 # Append original lizards df with lizards_pred_v
 lizards_pred_df <- lizards %>% 
   mutate(pred_weight = lizards_pred_v)
-
-# Graph predicted weight vs actual weight
-ggplot(lizards_pred_df) +
-  geom_jitter(aes(x = weight, y = pred_weight, color = sex)) + 
-  geom_abline(aes(x = weight, y = pred_weight), 
-              intercept = 0,
-              slope = 1,
-              color = "cornsilk4",
-              size = 1.5) +
-  labs(x = "Weight", y = "Predicted weight")
-
-  
-
-### Create kable output
 ```
+
+
+**Customize colors**
+```{r}
+# Graph predicted weight vs actual weight
+ggplot(data = lizards_pred_df, 
+       aes(x = SV_length, y = lizards_pred_v)) +
+  geom_point(aes(x = SV_length, y = weight, color = sex),
+             size = 1.5) +
+  scale_color_manual(values = c('tan1', 'sienna3')) +
+  geom_line(color = 'thistle4', size = 1) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom") +
+  labs(x = "Snout to Vent Length (mm)",
+       y = "Weight (g)")
+```
+
+##### **Figure 1:** *This graph shows the actual weight of lizards separated by sex and a fitted non-linear least squares model (the purple line) that predicts wight from snout to vent length.* 
+
+This graph shows that the fitted model predicts lizard weight from snout to vent length acceptably. 
 
 ### Step 3
 
@@ -126,16 +149,6 @@ lizards_mWW_pred_v <- predict(lizards_mWW_nls)
 # Append original lizards_mWW_df with lizards_pred_v
 lizards_mWW_pred_df <- lizards_mWW_df %>% 
   mutate(pred_weight_mWW = lizards_mWW_pred_v)
-
-# # Graph predicted weight vs actual weight
-# ggplot(lizards_mWW_pred_df) +
-#   geom_jitter(aes(x = weight, y = pred_weight, color = sex)) + 
-#   geom_abline(aes(x = weight, y = pred_weight), 
-#               intercept = 0,
-#               slope = 1,
-#               color = "cornsilk4",
-#               size = 1.5) +
-#   labs(x = "Weight", y = "Predicted weight")
 ```
 
 Compare the two models
@@ -144,16 +157,33 @@ lizards_compare_df <- lizards_pred_df %>%
   filter(spp == "CNTI", sex == 'M') %>% 
   mutate(pred_weight_gen = pred_weight) %>% 
   mutate(pred_weight_mWW = lizards_mWW_pred_v)
+```
 
+**Customize colors**
+```{r graphically compare two models}
 # Graph predictions from general model vs mWW-specific model
 ggplot(lizards_compare_df) +
-  geom_jitter(aes(x = weight, y = pred_weight_mWW), color = "darkslateblue") +
-  geom_jitter(aes(x = weight, y = pred_weight_gen),color = "gold3") +
-  geom_jitter(aes(x = weight, y = weight),color = "black") +
-  labs(x = "Weight", y = "Predicted weight")
-
-lizards_nls_gen_rmse <- rmse(model = lizards_nls, data = lizards_compare_df)
-lizards_nls_mWW_rmse <- rmse(model = lizards_mWW_nls, data = lizards_compare_df)
+  geom_point(aes(x = SV_length, y = weight), 
+             color = "sienna3",
+             size = 1.5) +
+  geom_line(aes(x = SV_length, y = pred_weight_gen,
+                color = "General Model"), size = 1) +
+  geom_line(aes(x = SV_length, y = pred_weight_mWW,
+                color = "Whiptail Model"), size = 1) +
+  scale_colour_manual(values =
+                      c("General Model" = "thistle4",
+                        "Whiptail Model" = "darkgoldenrod2")) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom") +
+  labs(x = "Snout to Vent Length (mm)",
+       y = "Weight (g)")
 
 ```
+
+```{r compare rmse}
+lizards_nls_gen_rmse <- rmse(model = lizards_nls, data = lizards_compare_df)
+lizards_nls_mWW_rmse <- rmse(model = lizards_mWW_nls, data = lizards_compare_df)
+```
+
 
