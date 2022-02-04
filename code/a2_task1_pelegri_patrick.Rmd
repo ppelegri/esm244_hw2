@@ -48,8 +48,8 @@ palmetto_raw <- read_csv(here("data", "palmetto.csv"))
 palmetto <- palmetto_raw %>% 
   select(species, height, length, width, green_lvs) %>% 
   mutate(species = case_when(
-    species == 1 ~ "Serenoa repens",
-    species == 2 ~ "Sabal etonia"
+    species == 1 ~ "Sabal etonia",
+    species == 2 ~ "Serenoa repens"
   )) %>% 
   mutate(species = as.factor(species)) %>%  # Sabal etonia is 1st, Serenoa repens is 2nd
   drop_na()
@@ -130,6 +130,8 @@ We see that the two species are difficult to distinguish when looking at canopy 
 
 ### Binary logistic regression
 
+#### Create models
+
 Two binary logistic regression models are created to predict palmetto species based on palmetto traits. One model contains all four variables of interest and is called **Model All**. The other model contains only canopy width, plant height, and number of green leaves and is called **Model Subset**.
 
 ```{r binary logistic regression}
@@ -148,6 +150,8 @@ palmetto_blr_subset <- glm(formula = f_subset,
                     family = 'binomial')
 
 ```
+
+#### Compare models
 
 Cross validation using 10 folds and 10 iterations is performed to compare the performance of the two models. 
 ```{r cross validation}
@@ -177,11 +181,13 @@ palmetto_aic <- AICcmodavg::aictab(list(palmetto_blr_all, palmetto_blr_subset))
 palmetto_aic # AIC results indicate that Model 1 is preferable since it is lower by 793 points
 ```
 
-AICc results show that Model All (AICc of `r round(palmetto_AICc$AICc[1], 1)`) outperforms Model Subset (AICc of `r round(palmetto_AICc$AICc[2], 1)`) by approximately `r round(palmetto_AICc$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model All is preferable to Model Subset.
+AICc results show that Model All (AICc of `r round(palmetto_aic$AICc[1], 1)`) outperforms Model Subset (AICc of `r round(palmetto_aic$AICc[2], 1)`) by approximately `r round(palmetto_aic$Delta_AICc[2], 1)` points. This difference is very large - much larger than the significant difference threshold of 2 points. AICc confirms that Model All is preferable to Model Subset.
+
+#### Present model results 
 
 ```{r train selected model}
-# Store tidy results of final model (Model 1)
-final_palmetto_blr <- tidy(palmetto_blr1) %>%  
+# Store tidy results of final model (Model All) for display in a table
+palmetto_blr_final <- tidy(palmetto_blr_all) %>%  
   mutate(p.value = case_when( # rename p-values for readability
     p.value <0.001 ~ "<0.001"
   )) %>% 
@@ -192,22 +198,20 @@ final_palmetto_blr <- tidy(palmetto_blr1) %>%
          term == "width" ~ "Width",
          term == "green_lvs" ~ "# of green leaves")) %>% 
   select(-statistic)
+```
 
+##### **Table 1.** Coefficients for each variable in the final selected model, Model All.
+```{r create final table}
 # Create table
-kable(final_palmetto_blr, 
+kable(palmetto_blr_final, 
       col.names = c("Term", "Coefficient", "Standard Error", "P Value")) %>% 
   kable_minimal(full_width = FALSE)
 ```
 
-```{r}
-# Put the below as text if I think it's necessary.
-
-# Final model:
-# `r equatiomatic::extract_eq(final_palmetto_blr, wrap = TRUE, use_coefs = TRUE)`
-```
-
 
 #### Evaluate model predictions
+
+This code evaluates how successfully Model All would classify a palmetto plant as the correct species, using a 50% cutoff. That is, if the model evaluates a likelihood of =>50% that the observation is Serenoa repens, then the model will predict that observation is Serenoa repens. Predictions are then compared to actual observations to determine the accuracy of the model's predictions.
 
 ```{r evaluate model predictions}
 # Create function for prediction accuracy
@@ -217,25 +221,27 @@ predict_accuracy_f <- function(x, y) {
 }
  
 # Create fitted outcomes for each model, create column predicted_species based on predictions, create column prediction_result that shows 1 for correct prediction and 0 for incorrect prediction
-blr1_predictions <- palmetto_blr1 %>% 
+blr_all_predictions <- palmetto_blr_all %>% 
   augment(type.predict = 'response') %>% 
   mutate(predicted_species = case_when(
-    .fitted >= 0.5 ~ "Serenoa repens",
-    .fitted < 0.5 ~ "Sabal etonia"
+    .fitted >= 0.5 ~ "Serenoa repens", # Serenoa is our 1 value because it is factor 2
+    .fitted < 0.5 ~ "Sabal etonia" # Sabal is our 0 value because it is factor 1
   )) %>% 
   mutate(prediction_result = predict_accuracy_f(species, predicted_species))
 
 # See what percentage of the time the model predicted correctly
-blr1_accuracy <- blr1_predictions %>% 
+blr_all_accuracy <- blr_all_predictions %>% 
   group_by(species) %>% 
   summarize(pred_accuracy_v = round(mean(prediction_result), 2))
   
 ```
 
-**Table 2.** Table caption here
+##### **Table 2.** Summary of the percentage of accurate predictions from Model All for each palmetto species. The average accuracy of the model was* `r (round(model_all$results$Accuracy, 2))*100` *percent* 
 ```{r}
 # Return results in a table
-kable(blr1_accuracy, 
+kable(blr_all_accuracy, 
       col.names = c("Species", "% correctly classified")) %>% 
   kable_minimal(full_width = FALSE)
 ```
+
+Model All was more accurate in predicting Serenoa repens than Sabal etonia. The model correctly predicted that a palmetto was Serenoa repens `r blr_all_accuracy$prediction_result[2]` of the time. The accuracy of predicting Sabal etonia was `r blr_all_accuracy$prediction_result[1]`. This corresponds to an average accuracy of `r (round(model_all$results$Accuracy, 2))*100`.
